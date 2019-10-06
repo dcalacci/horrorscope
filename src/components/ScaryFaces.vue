@@ -89,47 +89,74 @@ export default {
             .detectAllFaces(this.videoEl, modelOptions)
             .withFaceLandmarks()
             .withFaceDescriptors()
-
-      this.drawEmojis(results)
       
+      this.canvas = document.getElementById('overlay')
+      this.ctx = this.canvas.getContext("2d");
+      this.dims = faceapi.matchDimensions(this.canvas, this.videoEl, true)
+      const resizedResults = faceapi.resizeResults(results, this.dims)
+      
+      await this.drawEmojis(resizedResults)
       
       setTimeout(() => this.onPlay())
-      
-      //return results
     },
     
-    drawEmojis: async function (results) {
-      const canvas = document.getElementById('overlay')
-      var ctx = canvas.getContext("2d");
-      const dims = faceapi.matchDimensions(canvas, this.videoEl, true)
-      const resizedResults = faceapi.resizeResults(results, dims)
-
+    drawEmojis: async function (resizedResults) {
       console.log(">> results:", resizedResults);
-      
-      resizedResults.forEach(({ detection, descriptor }) => {
-        let emoji = this.emojis[Math.floor(Math.random() * this.emojis.length)];
+      resizedResults.forEach((r) => {
+        let detection = r.detection;
+        let emoji = this.getFaceEmoji(r);
         var box = detection["box"]
         var x = box["topLeft"]["x"] + (box["width"]/2)
         var y = box["topLeft"]["y"] + (box["height"]/2)
-      
+        
         var fontSize = 72;
-        ctx.font = "" + fontSize + "px Arial"
-        var text = ctx.measureText(emoji);
-      
+        this.ctx.font = "" + fontSize + "px Arial"
+        var text = this.ctx.measureText(emoji);
+        
         // find right font size
         while (text.width < box["width"] + 20) {
-          ctx.font = fontSize + "px Arial"
-          text = ctx.measureText(emoji);
+          this.ctx.font = fontSize + "px Arial"
+          text = this.ctx.measureText(emoji);
           fontSize += 12;
         }
-
+        
         // console.log("filling 🎃 @", x, y);
         // console.log("actually @", text, x - (text.width/2), y + (text.height/2));
-        ctx.fillText(emoji,
-                     x - text.width/2,
-                     y + text.width/3);
+        this.ctx.fillText(emoji,
+                          x - text.width/2,
+                          y + text.width/3);
       })
     },
+    
+    getFaceEmoji: function (result) {
+      if (!this.faceMatcher) {
+        this.seenFaces.push(result)
+        this.faceMatcher = new faceapi.FaceMatcher(this.seenFaces)
+      }
+      
+      let label = this.faceMatcher.findBestMatch(result.descriptor)._label
+      // new face
+      if (label == 'unknown') {
+        this.seenFaces.push(result)
+        console.log("new face")
+        //localStorage.setItem("seenFaces", encodeJSON(seenFaces));
+        //console.log("json added:", encodeJSON(seenFaces));
+        this.faceMatcher = new faceapi.FaceMatcher(this.seenFaces)
+      }
+      
+      // find match with new faceMatcher
+      label = this.faceMatcher.findBestMatch(result.descriptor)._label
+      
+      // if we haven't assigned an emoji
+      if (!(label in this.faceEmojiMap)) {
+        console.log("label not in emoji map...")
+        this.faceEmojiMap[label] = this.emojis[Math.floor(Math.random() * this.emojis.length)];
+        //localStorage.setItem("faceEmojiMap", encodeJSON(faceEmojiMap));
+      }
+      
+      return this.faceEmojiMap[label]
+    },
+    
   }
 }
 </script>
