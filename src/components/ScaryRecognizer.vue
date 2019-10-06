@@ -1,22 +1,6 @@
 <template>
 <div class="videoContainer">
-  <div class="titletext ">
-    <h1> spooky</h1>
-    <h1> emoji</h1>
-    <h1> horrorscope</h1>
-    <p v-if="ready" class="horrorscopeText" v-for="emoji in currentEmojis">
-      {{emoji}}:
-      <br/>
-      <span class="horrorText">{{horrorscopes[emoji]}}</span>
-    </p>
-    <h2 v-if="!ready">Reading the spooky air, please wait...</h2>
-    
-    <!-- <ul> -->
-    <!--   <li v-for="emoji in emojis"> -->
-    <!--      <a href="#" v-on:click="displayEmojiInfo">{{ emoji }}</a> -->
-    <!--   </li> -->
-    <!-- </ul> -->
-  </div>
+  
       <canvas id="overlay" />
       <video id="cam" class="video" autoplay muted playsinline></video>
     </div>
@@ -33,6 +17,7 @@ import * as faceapi from 'face-api.js';
 // of ImageData is required, in case you want to use the MTCNN
 const { Canvas, Image, ImageData } = canvas
 
+
 //faceapi.env.monkeyPatch({ Canvas, Image, ImageData })
 // configure face API
 faceapi.env.monkeyPatch({
@@ -44,20 +29,6 @@ faceapi.env.monkeyPatch({
   createImageElement: () => document.createElement('img')
 });
 
-const emojiHoroscopes = {"👻": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "💀": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "🕷": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "⚰": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "🌕":"You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "🎃": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
-                         "🦇":"You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away..." }
-
 const emojis = ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇",];
 let faceMatcher;
 let seenFaces = []
@@ -68,9 +39,15 @@ export default {
   data() {
     return {
       emojis: ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇"],
-      horrorscopes: emojiHoroscopes,
-      ready: false,
-      currentEmojis: [],
+      emojiEmotionMap: {
+        angry: "👻",
+        disgusted: "💀",
+        fearful: "🕷",
+        happy: "🕷",
+        neutral: "🌕",
+        sad: "⚰",
+        surprised: "🎃"
+      },
       faceMatcher: null,
       seenFaces: [],
       faceEmojiMap: {},
@@ -105,6 +82,8 @@ export default {
       await faceapi.nets.tinyFaceDetector.load("/static/weights")
       await faceapi.loadFaceLandmarkModel('/static/weights')
       await faceapi.loadFaceRecognitionModel('/static/weights')
+      await faceapi.loadFaceExpressionModel('/static/weights')
+      await faceapi.nets.ageGenderNet.load('/static/weights')
     },
     
     onPlay: async function () {
@@ -120,8 +99,8 @@ export default {
             .detectAllFaces(this.videoEl, modelOptions)
             .withFaceLandmarks()
             .withFaceDescriptors()
-      
-      this.ready = true;
+            .withFaceExpressions()
+            .withAgeAndGender()
       
       this.canvas = document.getElementById('overlay')
       this.ctx = this.canvas.getContext("2d");
@@ -134,36 +113,48 @@ export default {
     },
     
     drawEmojis: async function (resizedResults) {
-      //console.log(">> results:", resizedResults);
-      this.currentEmojis = []
+      console.log(">> results:", resizedResults);
       resizedResults.forEach((r) => {
         let detection = r.detection;
-        let emoji = this.getFaceEmoji(r);
-        this.currentEmojis.push(emoji);
+        //let emoji = this.getFaceEmoji(r);
         var box = detection["box"]
-        var x = box["topLeft"]["x"] + (box["width"]/2)
-        var y = box["topLeft"]["y"] + (box["height"]/2)
+        var x = box["bottomLeft"]["x"] //+ (box["width"]/2)
+        var y = box["bottomLeft"]["y"] + (box["height"]/2)
         
-        var fontSize = 72;
+        var fontSize = 18;
         this.ctx.font = "" + fontSize + "px Arial"
-        var text = this.ctx.measureText(emoji);
+        this.ctx.fillStyle = "white"
+        //var text = this.ctx.measureText(emoji);
         
         // find right font size
-        while (text.width < box["width"] + 20) {
-          this.ctx.font = fontSize + "px Arial"
-          text = this.ctx.measureText(emoji);
-          fontSize += 12;
-        }
+        // while (text.width < box["width"] + 20) {
+        //   this.ctx.font = fontSize + "px Arial"
+        //   text = this.ctx.measureText(emoji);
+        //   fontSize += 12;
+        // }
         
         // console.log("filling 🎃 @", x, y);
         // console.log("actually @", text, x - (text.width/2), y + (text.height/2));
-        this.ctx.fillText(emoji,
-                          x - text.width/2,
-                          y + text.width/3);
+        let texts =[]
+        Object.keys(r.expressions).forEach((expression) => {
+          let value = r.expressions[expression];
+          if (value > 0.2) {            
+            let emoji = this.emojiEmotionMap[expression]
+            texts.push("" + emoji + " " + value + "\n");
+          }
+        })
+        let text = texts.join("\n")
+        console.log("going to draw:", text);
+        this.ctx.fillText(text,
+                          x,
+                          y);
       })
     },
     
     getFaceEmoji: function (result) {
+      // random emoji
+      return this.emojis[Math.floor(Math.random() * this.emojis.length)];
+      
       if (!this.faceMatcher) {
         this.seenFaces.push(result)
         this.faceMatcher = new faceapi.FaceMatcher(this.seenFaces)
@@ -191,10 +182,6 @@ export default {
       
       return this.faceEmojiMap[label]
     },
-
-    displayEmojiInfo: function (e) {
-      console.log("clicked", e.target.innerText);
-    }
     
   }
 }
@@ -213,53 +200,12 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 500;
-}
-
-.titletext {
-    position: absolute;
-    top: 0;
-    left: 0;
-    text-align: left;
-    margin-left: 10px;
     z-index: 999;
 }
-.titletext h1 {
-    margin: 0;
-    padding: 0;
+li {
+    display: inline;
+    padding: 5px;
 }
-
-.titletext ul {
-    padding-left: 10px;
-    margin: 0;
-}
-.titletext li {
-    list-style-type: none;
-    padding: 0;
-}
-
-.titletext a {
-    padding: 0;
-    font-size: 1.5em;
-    text-decoration: none;
-}
-
-.titletext a:hover {
-    opacity: 0.8
-}
-
-.horrorscopeText {
-    font-size: 1.3em;
-    font-weight: bold;
-    max-width: 30%;
-    text-align: justify;
-}
-
-.horrorText {
-    background-color: #fff;
-    opacity: 0.8;
-    line-height:1.8;
- }
 
 .video {
         overflow: hidden;

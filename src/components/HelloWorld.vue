@@ -8,6 +8,7 @@
     <!-- `<router-link>` will be rendered as an `<a>` tag by default -->
     <router-link to="/">Go to Home</router-link>
     <router-link to="/video">Go to Video</router-link>
+    <router-link to="/recognizer">Go to Recognizer</router-link>
   </p>
     <ul>
       <li>

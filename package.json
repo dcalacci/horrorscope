@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^1.2.10",
+    "asyncawait": "^1.0.8",
     "aws-sdk": "^2.543.0",
     "canvas": "^2.6.0",
     "dns": "^0.2.2",
