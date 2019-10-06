@@ -30,140 +30,107 @@ faceapi.env.monkeyPatch({
   createImageElement: () => document.createElement('img')
 });
 
+const emojis = ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇",];
+let faceMatcher;
+let seenFaces = []
+let faceEmojiMap = {}
+
 export default {
   name: 'ScaryFaces',
   data() {
     return {
+      emojis: ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇"],
+      faceMatcher: null,
+      seenFaces: [],
+      faceEmojiMap: {},
       video: {},
       canvas: {},
       captures: []
     }
   },
   mounted() {
-    // init detection options
-    const minConfidenceFace = 0.5;
-    const faceapiOptions = new faceapi.SsdMobilenetv1Options({ minConfidenceFace });
-    
-    let loadNet = async () => {
-      let detectionNet = faceapi.nets.ssdMobilenetv1;
-      //await detectionNet.loadFromUri('/static/weights');
-      await detectionNet.load('/static/weights');
-      await faceapi.loadFaceExpressionModel('/static/weights');
-      return detectionNet;
-    };
-    
-    let onReady = () => {
-      console.log('ready', {});
-    };
-    
-    let onExpression = (type) => {
-      console.log('expression', { type: type });
-    };
-    // let notifyRenderer = (command, payload) => {
-    //     ipcRenderer.send('window-message-from-worker', {
-    //       command: command, payload: payload
-    // });
-    
-    let cam;
-    let initCamera = async (width, height) => {
-      cam = document.getElementById('cam');
-      cam.width = width;
-      cam.height = height;
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: "user",
-          width: width,
-          height: height
-        }
-      });
-      cam.srcObject = stream;
-      return new Promise((resolve) => {
-        cam.onloadedmetadata = () => {
-          resolve(cam);
-        };
-      });
-      cam.srcObject = stream;
-    }
-    
-    let isReady;
-    
-    
-    const canvas = document.getElementById('overlay')
-    const ctx = canvas.getContext('2d')
-    console.log("got context:", ctx);
-    var text = ctx.measureText('Awesome!')
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)'
-    ctx.beginPath()
-    ctx.lineTo(50, 102)
-    ctx.lineTo(50 + text.width, 102)
-    ctx.stroke()
-    
-    let detectExpressions = async () => {
-      
-      // const displaySize = { width: cam.width,
-      //                       height: cam.height }
-      // console.log("dims:", displaySize);
-      // // resize the overlay canvas to the input dimensions
-      // const canvas = document.getElementById('overlay')
-      // faceapi.matchDimensions(canvas, displaySize)
-      
-      
-      let result = await faceapi.detectAllFaces(cam, faceapiOptions)
-          .withFaceExpressions()
-      
-      if(!isReady) {
-        isReady = true;
-        console.log("Detection is ready!");
-        onReady();
-      }
-      
-      if (result) {
-        const canvas = $('#overlay').get(0)
-        const displaySize = { width: cam.width,
-                              height: cam.height }
-        const dims = faceapi.matchDimensions(canvas, displaySize, true)
-        
-        const resizedResult = faceapi.resizeResults(result, dims)
-        const minConfidence = 0.05
-        
-        faceapi.draw.drawDetections(canvas, resizedResult)
-//        const resizedResults = faceapi.resizeResults(result, displaySize)
-        // draw detections into the canvas
-//        faceapi.draw.drawDetections(canvas, resizedResults)
-        // draw a textbox displaying the facepressions with minimum probability into the canva
-        //console.log("Should be displaying on canvas...")
-        // const minProbability = 0.05
-        // faceapi.w.drawFaceExpressions(canvas,
-        //                                  resizedResults,
-        //                                  minProbability)
-        // let happiness = 0, anger = 0;
-        // if(result.expressions.hasOwnProperty('happy')) {
-        //   happiness = result.expressions.happy;
-        // }
-        // if(result.expressions.hasOwnProperty('angry')) {
-        //   anger = result.expressions.angry;
-        // }
-        // if(happiness > 0.7) {
-        //   onExpression('happy');
-        // } else if(anger > 0.7) {
-        //   onExpression('angry');
-        // }
-      }
-      // was isRunning, not sure why
-      if(isReady) {
-        detectExpressions();
-      }
-    };
-    
-    // resize the detected boxes and landmarks in case your displayed image has a different size than the original
-    
-    loadNet()
-      .then( (net) => { return initCamera(640, 480)})
-      .then( (video) => { return detectExpressions() })
-    
+    this.setupVideoElement()
+    this.setupFaceDetector()
   },
-  methods: { }
+  methods: {
+    isFaceDetectionModelLoaded() {
+      return !!faceapi.nets.tinyFaceDetector.params;
+    },
+    
+    setupVideoElement: async function () {
+      this.videoEl = document.getElementById('cam')
+      console.log("videoEl", this.videoEl);
+      // read that doing this helps with mobile
+      this.videoEl.setAttribute('autoplay', '');
+      this.videoEl.setAttribute('muted', '');
+      this.videoEl.setAttribute('playsinline', '');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true})
+      this.videoEl.srcObject = stream
+      
+      this.videoEl.onloadedmetadata = this.onPlay()
+    },
+    
+    setupFaceDetector: async function () {
+      await faceapi.nets.tinyFaceDetector.load("/static/weights")
+      await faceapi.loadFaceLandmarkModel('/static/weights')
+      await faceapi.loadFaceRecognitionModel('/static/weights')
+    },
+    
+    onPlay: async function () {
+      if(this.videoEl.paused || this.videoEl.ended || !this.isFaceDetectionModelLoaded())
+        return setTimeout(() => this.onPlay())
+      
+      let inputSize = 160
+      let scoreThreshold = 0.5
+      
+      const modelOptions = new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold })
+      
+      const results = await faceapi
+            .detectAllFaces(this.videoEl, modelOptions)
+            .withFaceLandmarks()
+            .withFaceDescriptors()
+
+      this.drawEmojis(results)
+      
+      
+      setTimeout(() => this.onPlay())
+      
+      //return results
+    },
+    
+    drawEmojis: async function (results) {
+      const canvas = document.getElementById('overlay')
+      var ctx = canvas.getContext("2d");
+      const dims = faceapi.matchDimensions(canvas, this.videoEl, true)
+      const resizedResults = faceapi.resizeResults(results, dims)
+
+      console.log(">> results:", resizedResults);
+      
+      resizedResults.forEach(({ detection, descriptor }) => {
+        let emoji = this.emojis[Math.floor(Math.random() * this.emojis.length)];
+        var box = detection["box"]
+        var x = box["topLeft"]["x"] + (box["width"]/2)
+        var y = box["topLeft"]["y"] + (box["height"]/2)
+      
+        var fontSize = 72;
+        ctx.font = "" + fontSize + "px Arial"
+        var text = ctx.measureText(emoji);
+      
+        // find right font size
+        while (text.width < box["width"] + 20) {
+          ctx.font = fontSize + "px Arial"
+          text = ctx.measureText(emoji);
+          fontSize += 12;
+        }
+
+        // console.log("filling 🎃 @", x, y);
+        // console.log("actually @", text, x - (text.width/2), y + (text.height/2));
+        ctx.fillText(emoji,
+                     x - text.width/2,
+                     y + text.width/3);
+      })
+    },
+  }
 }
 </script>
 
