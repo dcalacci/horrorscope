@@ -4,19 +4,14 @@
     <h1> spooky</h1>
     <h1> emoji</h1>
     <h1> horrorscope</h1>
+    </div>
     <p v-if="ready" class="horrorscopeText" v-for="emoji in currentEmojis">
       {{emoji}}:
       <br/>
       <span class="horrorText">{{horrorscopes[emoji]}}</span>
     </p>
-    <h2 v-if="!ready">Reading the spooky air, please wait...</h2>
+    <h2 class="horrorscopeText" v-if="!ready"><span class="horrorText">Reading the spooky air, please wait...{{loadingEmoji}}</span></h2>
     
-    <!-- <ul> -->
-    <!--   <li v-for="emoji in emojis"> -->
-    <!--      <a href="#" v-on:click="displayEmojiInfo">{{ emoji }}</a> -->
-    <!--   </li> -->
-    <!-- </ul> -->
-  </div>
       <canvas id="overlay" />
       <video id="cam" class="video" autoplay muted playsinline></video>
     </div>
@@ -45,17 +40,17 @@ faceapi.env.monkeyPatch({
 });
 
 const emojiHoroscopes = {"👻": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "💀": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "🕷": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "⚰": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "🌕":"You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "🎃": "You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away...",
-
+                         
                          "🦇":"You are at your spookiest when you're able to be alone, sometimes even in the same room as other monsters. The past isn't what haunts you; it's the present. Are you floating? Or just surviving? No barriers can hold you, but you might need some ground beneath your feet, lest you float away..." }
 
 const emojis = ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇",];
@@ -76,10 +71,31 @@ export default {
       faceEmojiMap: {},
       video: {},
       canvas: {},
-      captures: []
+      captures: [],
+      loadingEmoji: ""
     }
   },
   mounted() {
+    
+    //this.$ls.set("testing", "test!!")
+    //console.log("from localstorage:", this.$ls.get("testing"))
+    
+    
+    //let seenFaces = this.$ls.get('seenFaces')
+    //let faceEmojiMap = this.$ls.get('faceEmojiMap')
+    
+    //console.log("read seenFaces:", seenFaces);
+    //console.log("loaded seen faces:", seenFaces)
+    
+    // if (!seenFaces || seenFaces.length < 1) {
+    //   console.log("resetting seen faces")
+    //   seenFaces = [];
+    //   this.$ls.set('seenFaces', [])
+    // } else {
+    //   console.log("loaded", seenFaces.length, "seen faces:", seenFaces)
+    //   this.faceMatcher = new faceapi.FaceMatcher(seenFaces)
+    // }
+    this.randomLoadingEmoji()
     this.setupVideoElement()
     this.setupFaceDetector()
   },
@@ -107,6 +123,14 @@ export default {
       await faceapi.loadFaceRecognitionModel('/static/weights')
     },
     
+    randomLoadingEmoji: function () {
+      this.loadingEmoji = this.emojis[Math.floor(Math.random() * this.emojis.length)];
+      if (!this.ready) {
+        console.log("new emoji:", this.loadingEmoji);
+        return setTimeout(() => this.randomLoadingEmoji(), 100)
+      }
+    },
+    
     onPlay: async function () {
       if(this.videoEl.paused || this.videoEl.ended || !this.isFaceDetectionModelLoaded())
         return setTimeout(() => this.onPlay())
@@ -121,7 +145,6 @@ export default {
             .withFaceLandmarks()
             .withFaceDescriptors()
       
-      this.ready = true;
       
       this.canvas = document.getElementById('overlay')
       this.ctx = this.canvas.getContext("2d");
@@ -129,6 +152,8 @@ export default {
       const resizedResults = faceapi.resizeResults(results, this.dims)
       
       await this.drawEmojis(resizedResults)
+      
+      this.ready = true;
       
       setTimeout(() => this.onPlay())
     },
@@ -174,7 +199,8 @@ export default {
       if (label == 'unknown') {
         this.seenFaces.push(result)
         console.log("new face")
-        localStorage.setItem("seenFaces", seenFaces);
+        //this.$ls.set("seenFaces", seenFaces)
+        
         //console.log("json added:", encodeJSON(seenFaces));
         this.faceMatcher = new faceapi.FaceMatcher(this.seenFaces)
       }
@@ -186,7 +212,7 @@ export default {
       if (!(label in this.faceEmojiMap)) {
         console.log("label not in emoji map...")
         this.faceEmojiMap[label] = this.emojis[Math.floor(Math.random() * this.emojis.length)];
-        localStorage.setItem("faceEmojiMap", faceEmojiMap);
+        //this.$ls.set('faceEmojiMap', faceEmojiMap)
       }
       
       return this.faceEmojiMap[label]
@@ -206,6 +232,7 @@ body {
 }
 #video {
     background-color: #000000;
+    z-index: 499;
 }
 #overlay, .overlay {
     width: 100%;
@@ -248,11 +275,30 @@ body {
     opacity: 0.8
 }
 
+
 .horrorscopeText {
     font-size: 1.3em;
     font-weight: bold;
-    max-width: 30%;
+    padding-left: 10px;
+    max-width: 33%;
     text-align: justify;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: 999;
+}
+
+@media (max-width : 800px) {
+    .horrorscopeText {
+        font-size: 1.1em;
+        font-weight: bold;
+        max-width: 80%;
+        text-align: justify;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        z-index: 999;
+   }
 }
 
 .horrorText {
