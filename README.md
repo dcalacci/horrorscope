@@ -1,21 +1,15 @@
-# scary-faces
+# horrorscope
 
-> replace your face
+Horrorscope uses face recognition and analysis to intuit the spooky emoji at your
+core. screw constellations -- are you a ghost, a coffin, a jack-o-lantern, or a moon?
 
-## Build Setup
+      `emojis: ["👻", "💀", "🕷","⚰", "🌕","🎃", "🦇"`
 
-``` bash
-# install dependencies
-npm install
+inspired by the deluge of bad facial recognition and classification research out there, i wore this
+app on an ipad as part of my 2019 halloween costume, here I promised people that my proprietary,
+SOTA face recognition algorithm could tell them their true emoji from just their face.
 
-# serve with hot reload at localhost:8080
-npm run dev
+horrorscope remembers faces it sees and replaces each face from a camera with its corresponding
+emoji. the horoscopes themselves are all the same -- for now.
 
-# build for production with minification
-npm run build
-
-# build for production and view the bundle analyzer report
-npm run build --report
-```
-
-For a detailed explanation on how things work, check out the [guide](http://vuejs-templates.github.io/webpack/) and [docs for vue-loader](http://vuejs.github.io/vue-loader).
+![demo](screenshots/ghost.png)
