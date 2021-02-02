@@ -1,5 +1,7 @@
 # horrorscope
 
+https://horrorscope.netlify.app/#/
+
 Horrorscope uses face recognition and analysis to intuit the spooky emoji at your
 core. screw constellations -- are you a ghost, a coffin, a jack-o-lantern, or a moon?
 
